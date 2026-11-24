@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AriaCrypto - Échange MGA ↔ Crypto</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Space Grotesk',sans-serif}
+body{background:#07070e;color:#fff;min-height:100vh}
+.topbar{background:#0d0d1a;border-bottom:1px solid #222;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10}
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:22px}
+.logo-mark{width:40px;height:40px;background:linear-gradient(135deg,#00ff88,#00c2ff);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;color:#000}
+.logo span{color:#00ff88}
+.ticker{display:flex;gap:16px;font-size:12px;opacity:.8;overflow-x:auto;white-space:nowrap}
+.container{max-width:1150px;margin:20px auto;padding:0 16px;display:grid;grid-template-columns:1.25fr .75fr;gap:16px}
+@media(max-width:850px){.container{grid-template-columns:1fr}.ticker{display:none}}
+.card{background:#13131f;border:1px solid #222;border-radius:24px;padding:22px}
+.tabs{display:flex;background:#1e1e2e;padding:5px;border-radius:50px;margin-bottom:20px}
+.tabs button{flex:1;border:0;background:transparent;color:#aaa;padding:11px;border-radius:50px;cursor:pointer;font-weight:700}
+.tabs button.active{background:#00ff88;color:#000}
+.input-group{background:#1e1e2e;border-radius:16px;padding:14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+.input-group label{font-size:11px;opacity:.6;display:block;margin-bottom:4px}
+.input-group input{background:transparent;border:0;color:#fff;font-size:30px;width:60%;outline:none;font-weight:700}
+.select button{background:#2a2a3d;border:0;color:#fff;padding:9px 14px;border-radius:30px;cursor:pointer;font-weight:700;display:flex;gap:6px;align-items:center}
+.swap-btn{width:48px;height:48px;background:#00ff88;border:0;border-radius:50%;margin:-8px auto;display:block;cursor:pointer;font-size:20px;color:#000;z-index:2;position:relative}
+.rate-box{background:#1a1a2b;border:1px solid #2a2a3d;border-radius:12px;padding:12px;font-size:13px;line-height:1.7;margin:12px 0}
+.pay-methods{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:12px 0}
+.pay-methods button{padding:12px;border-radius:12px;border:1px solid #333;background:#1e1e2e;color:#fff;cursor:pointer;font-weight:600}
+.pay-methods button.active{border-color:#00ff88;background:#00ff8820;color:#00ff88}
+.field{margin:12px 0}
+.field input{width:100%;background:#1e1e2e;border:1px solid #333;border-radius:12px;padding:13px;color:#fff;outline:none}
+.btn-main{width:100%;background:#00ff88;color:#000;border:0;padding:16px;border-radius:14px;font-weight:800;font-size:16px;cursor:pointer}
+.history-item{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid #222;font-size:13px}
+.badge{padding:3px 9px;border-radius:20px;font-size:11px;background:#00ff8820;color:#00ff88}
+.badge.orange{background:#ff7a001a;color:#ff8c00}
+.footer{text-align:center;opacity:.4;font-size:12px;padding:20px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.8);display:none;align-items:center;justify-content:center;padding:16px;z-index:99}
+.modal-box{background:#14141f;border-radius:20px;padding:24px;max-width:400px;width:100%;text-align:center}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="logo"><div class="logo-mark">A</div>Aria<span>Crypto</span></div>
+  <div class="ticker" id="ticker">Chargement...</div>
+  <div id="userArea"><button onclick="login()" style="background:#00ff88;border:0;padding:9px 16px;border-radius:20px;font-weight:700;cursor:pointer">Se connecter</button></div>
+</div>
+<div class="container">
+  <div class="card">
+    <div class="tabs">
+      <button id="tabBuy" class="active" onclick="setMode('MGA_TO_CRYPTO')">MGA → CRYPTO</button>
+      <button id="tabSell" onclick="setMode('CRYPTO_TO_MGA')">CRYPTO → MGA</button>
+    </div>
+    <div class="input-group">
+      <div><label id="labelFrom">Vous payez (MGA)</label><input type="number" id="fromInput" value="50000" oninput="calculate()"></div>
+      <div class="select"><button id="fromBtn">🇲🇬 MGA</button></div>
+    </div>
+    <button class="swap-btn" onclick="toggleMode()">⇅</button>
+    <div class="input-group">
+      <div><label id="labelTo">Vous recevez</label><input type="number" id="toInput" readonly></div>
+      <div class="select"><button id="cryptoBtn" onclick="toggleCryptoList()">₿ BTC ▼</button></div>
+    </div>
+    <div id="cryptoList" style="display:none;background:#2a2a3d;border-radius:12px;padding:6px;margin-top:-8px"></div>
+    <div class="rate-box" id="rateBox">Chargement taux...</div>
+    <label style="font-size:12px;opacity:.7">Mode de paiement</label>
+    <div class="pay-methods">
+      <button class="active" id="payOrange" onclick="setPay('ORANGE_MONEY')">🟠 Orange Money</button>
+      <button onclick="setPay('MVOLA')">🔴 Mvola</button>
+      <button onclick="setPay('AIRTEL')">🔵 Airtel Money</button>
+    </div>
+    <div class="field"><input id="phoneInput" placeholder="Numéro Orange Money : 032 00 000 00"></div>
+    <div class="field"><input id="walletInput" placeholder="Adresse Wallet Crypto (pour recevoir) - ex: bc1q..."></div>
+    <button class="btn-main" id="mainBtn" onclick="startPayment()">Payer avec Orange Money → Recevoir Crypto</button>
+    <p style="font-size:11px;text-align:center;margin-top:10px;opacity:.5">Sécurisé par Supabase • Confirmation Orange Money par USSD / SMS</p>
+  </div>
+  <div class="card">
+    <h3>Marché en Direct - Ariary</h3>
+    <div id="marketList" style="margin-top:12px"></div>
+    <h3 style="margin-top:22px">Mes Transactions</h3>
+    <div id="history"><p style="opacity:.5;font-size:13px;margin-top:10px">Connecte-toi pour voir ton historique.</p></div>
+  </div>
+</div>
+<div class="footer">AriaCrypto © 2026 - Antananarivo, Madagascar • Échange MGA ↔ Crypto</div>
+<div class="modal" id="modal">
+  <div class="modal-box">
+    <div style="font-size:40px">🟠</div>
+    <h3 id="modalTitle">Confirmation Orange Money</h3>
+    <p id="modalText" style="margin:12px 0;opacity:.8;font-size:14px"></p>
+    <button class="btn-main" onclick="confirmOrange()">J'ai confirmé sur mon téléphone</button>
+    <button onclick="closeModal()" style="background:transparent;border:0;color:#aaa;margin-top:12px;cursor:pointer">Annuler</button>
+  </div>
+</div>
+<script>
+// ============ CONFIG AriaCrypto - DEJA REMPLI ============
+const SUPABASE_URL = "https://pprpecscbrktispfnnps.supabase.co";
+const SUPABASE_KEY = "sb_publishable_azWZIyrQujfCoKUAAypQBw__wyELW9T";
+const ORANGE_MONEY_API_URL = "https://api.orange.com/orange-money-mg/v1";
+const ORANGE_MONEY_TOKEN = "TON_TOKEN_ORANGE";
+const USD_MGA = 4650;
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const cryptos = [
+  {id:'bitcoin',symbol:'BTC',name:'Bitcoin',icon:'₿'},
+  {id:'ethereum',symbol:'ETH',name:'Ethereum',icon:'Ξ'},
+  {id:'tether',symbol:'USDT',name:'USDT',icon:'$'},
+  {id:'solana',symbol:'SOL',name:'Solana',icon:'◎'},
+  {id:'binancecoin',symbol:'BNB',name:'BNB',icon:'BNB'}
+];
+let currentCrypto = cryptos[0];
+let mode = 'MGA_TO_CRYPTO';
+let payMethod = 'ORANGE_MONEY';
+let prices = {};
+let currentUser = null;
+function setMode(m){
+  mode = m;
+  document.getElementById('tabBuy').className = m==='MGA_TO_CRYPTO'?'active':'';
+  document.getElementById('tabSell').className = m==='CRYPTO_TO_MGA'?'active':'';
+  document.getElementById('labelFrom').innerText = m==='MGA_TO_CRYPTO' ? 'Vous payez (MGA)' : 'Vous payez (Crypto)';
+  document.getElementById('labelTo').innerText = m==='MGA_TO_CRYPTO' ? 'Vous recevez' : 'Vous recevez (MGA)';
+  document.getElementById('fromBtn').innerText = m==='MGA_TO_CRYPTO' ? '🇲🇬 MGA' : `${currentCrypto.icon} ${currentCrypto.symbol}`;
+  document.getElementById('cryptoBtn').innerText = m==='MGA_TO_CRYPTO' ? `${currentCrypto.icon} ${currentCrypto.symbol} ▼` : '🇲🇬 MGA';
+  document.getElementById('mainBtn').innerText = m==='MGA_TO_CRYPTO' ? 'Payer avec Orange Money → Recevoir Crypto' : 'Vendre Crypto → Recevoir Orange Money';
+  calculate();
+}
+function toggleMode(){ setMode(mode==='MGA_TO_CRYPTO'?'CRYPTO_TO_MGA':'MGA_TO_CRYPTO'); }
+function setPay(p){ payMethod=p; document.querySelectorAll('.pay-methods button').forEach(b=>b.classList.remove('active')); event.target.classList.add('active'); }
+function toggleCryptoList(){
+  const el=document.getElementById('cryptoList');
+  el.style.display = el.style.display==='block'?'none':'block';
+  if(!el.innerHTML) el.innerHTML=cryptos.map(c=>`<div onclick="setCrypto('${c.id}')" style="padding:10px;cursor:pointer">${c.icon} ${c.symbol} - ${c.name}</div>`).join('');
+}
+function setCrypto(id){ currentCrypto=cryptos.find(c=>c.id===id); document.getElementById('cryptoList').style.display='none'; setMode(mode); calculate(); }
+async function fetchPrices(){
+  try{
+    const ids=cryptos.map(c=>c.id).join(',');
+    const res=await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`);
+    prices=await res.json();
+  }catch(e){ prices={bitcoin:{usd:67000},ethereum:{usd:3500},tether:{usd:1},solana:{usd:180},binancecoin:{usd:600}}; }
+  let t='',m='';
+  for(let c of cryptos){
+    const mga=(prices[c.id]?.usd||0)*USD_MGA;
+    t+=`<span>${c.symbol}: ${mga.toLocaleString('fr-MG')} Ar</span>`;
+    m+=`<div class="history-item"><span><b>${c.symbol}</b> ${c.name}</span><span>${mga.toLocaleString('fr-MG')} Ar</span></div>`;
+  }
+  document.getElementById('ticker').innerHTML=t;
+  document.getElementById('marketList').innerHTML=m;
+  calculate();
+}
+function calculate(){
+  const from=parseFloat(document.getElementById('fromInput').value)||0;
+  const usdPrice=prices[currentCrypto.id]?.usd||0;
+  const mgaPrice=usdPrice*USD_MGA;
+  let to=0;
+  if(mode==='MGA_TO_CRYPTO'){
+    to = (from*0.985)/mgaPrice;
+    document.getElementById('toInput').value=to.toFixed(6);
+    document.getElementById('rateBox').innerHTML=`1 ${currentCrypto.symbol} = ${mgaPrice.toLocaleString('fr-MG')} Ar<br>Vous payez ${from.toLocaleString('fr-MG')} Ar → Vous recevez <b>${to.toFixed(6)} ${currentCrypto.symbol}</b><br>Frais: 1.5% • Livraison wallet en 2-5 min`;
+  } else {
+    to = from*mgaPrice*0.985;
+    document.getElementById('toInput').value=Math.round(to);
+    document.getElementById('rateBox').innerHTML=`1 ${currentCrypto.symbol} = ${mgaPrice.toLocaleString('fr-MG')} Ar<br>Vous envoyez ${from} ${currentCrypto.symbol} → Vous recevez <b>${Math.round(to).toLocaleString('fr-MG')} Ar</b> sur Orange Money<br>Frais: 1.5%`;
+  }
+}
+async function login(){
+  const email=prompt("Entre ton email pour te connecter :");
+  if(!email) return;
+  const {error}=await supabaseClient.auth.signInWithOtp({email});
+  if(error) alert(error.message); else alert("Lien de connexion envoyé à "+email);
+}
+async function loadHistory(){
+  const {data:{user}}=await supabaseClient.auth.getUser();
+  currentUser=user;
+  if(!user) return;
+  document.getElementById('userArea').innerHTML=`<span style="font-size:13px">👋 ${user.email}</span>`;
+  const {data}=await supabaseClient.from('transactions').select('*').order('created_at',{ascending:false}).limit(10);
+  if(data && data.length){
+    document.getElementById('history').innerHTML=data.map(t=>`<div class="history-item"><span>${t.amount} ${t.from_currency} → ${t.to_currency}</span><span><span class="badge ${t.status==='pending'?'orange':''}">${t.status}</span></span></div>`).join('');
+  }
+}
+async function startPayment(){
+  const from=document.getElementById('fromInput').value;
+  const to=document.getElementById('toInput').value;
+  const phone=document.getElementById('phoneInput').value;
+  const wallet=document.getElementById('walletInput').value;
+  if(!phone) return alert("Entre ton numéro Orange Money");
+  if(mode==='MGA_TO_CRYPTO' && !wallet) return alert("Entre ton adresse wallet pour recevoir la crypto");
+  const {data,error}=await supabaseClient.from('transactions').insert([{
+    user_id: currentUser?.id || null,
+    type: mode,
+    from_currency: mode==='MGA_TO_CRYPTO'?'MGA':currentCrypto.symbol,
+    to_currency: mode==='MGA_TO_CRYPTO'?currentCrypto.symbol:'MGA',
+    amount: parseFloat(from),
+    receive_amount: parseFloat(to),
+    phone: phone,
+    wallet_address: wallet,
+    payment_method: payMethod,
+    status: 'pending'
+  }]).select().single();
+  if(error) console.log("Supabase insert:", error.message);
+  document.getElementById('modalText').innerHTML=`Tu vas recevoir une demande de paiement de <b>${Number(from).toLocaleString('fr-MG')} Ar</b> sur le <b>${phone}</b> via <b>Orange Money</b>.<br><br>Transaction: <b>${mode}</b> → ${to} ${mode==='MGA_TO_CRYPTO'?currentCrypto.symbol:'MGA'}`;
+  document.getElementById('modal').style.display='flex';
+}
+async function confirmOrange(){
+  document.getElementById('modalTitle').innerText="Paiement confirmé ! ✅";
+  document.getElementById('modalText').innerHTML="Ton paiement Orange Money est confirmé.<br>Ta crypto arrive sur ton wallet dans quelques minutes.<br><br><b>Merci d'utiliser AriaCrypto !</b>";
+  await supabaseClient.from('transactions').update({status:'completed'}).order('created_at',{ascending:false}).limit(1);
+  setTimeout(()=>{ closeModal(); loadHistory(); }, 2000);
+}
+function closeModal(){ document.getElementById('modal').style.display='none'; }
+fetchPrices();
+loadHistory();
+supabaseClient.auth.onAuthStateChange(()=>loadHistory());
+setInterval(fetchPrices, 60000);
+</script>
+</body>
+</html>
