@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AriaCrypto Admin - Dashboard Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Space Grotesk',sans-serif}
+body{background:#07070e;color:#fff;min-height:100vh}
+.topbar{background:#0d0d1a;border-bottom:1px solid #222;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10}
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px}
+.logo-mark{width:38px;height:38px;background:linear-gradient(135deg,#00ff88,#00c2ff);border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#000}
+.logo span{color:#00ff88}
+.admin-badge{background:#ff3b30;color:#fff;font-size:11px;padding:4px 10px;border-radius:20px;font-weight:700}
+.container{max-width:1200px;margin:20px auto;padding:0 16px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}
+@media(max-width:800px){.stats{grid-template-columns:1fr 1fr}}
+.stat{background:#13131f;border:1px solid #222;border-radius:18px;padding:18px}
+.stat small{opacity:.6;font-size:12px} .stat b{font-size:26px;display:block;margin-top:6px}
+.stat.green b{color:#00ff88} .stat.orange b{color:#ff8c00} .stat.blue b{color:#00c2ff} .stat.red b{color:#ff3b30}
+.tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.tabs button{border:1px solid #333;background:#13131f;color:#aaa;padding:10px 18px;border-radius:30px;cursor:pointer;font-weight:700}
+.tabs button.active{background:#00ff88;color:#000;border-color:#00ff88}
+.card{background:#13131f;border:1px solid #222;border-radius:20px;padding:18px;margin-bottom:16px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:800px){.grid2{grid-template-columns:1fr}}
+.search{width:100%;background:#1e1e2e;border:1px solid #333;border-radius:12px;padding:12px;color:#fff;outline:none;margin-bottom:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;opacity:.6;font-size:11px;padding:10px;border-bottom:1px solid #222}
+td{padding:12px 10px;border-bottom:1px solid #1a1a1a;vertical-align:top}
+.badge{padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700}
+.badge.pending{background:#ff8c0020;color:#ff8c00}
+.badge.completed{background:#00ff8820;color:#00ff88}
+.badge.rejected{background:#ff3b3020;color:#ff3b30}
+.btn{border:0;padding:7px 12px;border-radius:8px;cursor:pointer;font-weight:700;font-size:12px}
+.btn-approve{background:#00ff88;color:#000}
+.btn-reject{background:#ff3b30;color:#fff}
+.btn-view{background:#2a2a3d;color:#fff}
+.btn-export{background:#fff;color:#000;padding:10px 16px;border-radius:20px;font-weight:700;cursor:pointer}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;padding:16px;z-index:99}
+.modal-box{background:#14141f;border-radius:20px;padding:24px;max-width:520px;width:100%;max-height:90vh;overflow:auto}
+.modal-box input,.modal-box textarea,.modal-box select{width:100%;background:#1e1e2e;border:1px solid #333;border-radius:10px;padding:11px;color:#fff;margin:8px 0;outline:none}
+.login-box{max-width:400px;margin:80px auto;background:#13131f;border:1px solid #222;border-radius:20px;padding:28px;text-align:center}
+.login-box input{width:100%;background:#1e1e2e;border:1px solid #333;border-radius:12px;padding:13px;color:#fff;margin:10px 0;outline:none}
+.toggle{display:flex;gap:8px;margin-bottom:10px}
+.toggle button{flex:1;padding:8px;border-radius:20px;border:1px solid #333;background:#1e1e2e;color:#aaa;cursor:pointer;font-weight:700}
+.toggle button.active{background:#00ff88;color:#000}
+.sms-preview{background:#1e1e2e;border:1px dashed #00ff88;border-radius:12px;padding:12px;font-size:13px;line-height:1.6;margin:10px 0}
+</style>
+</head>
+<body>
+<div id="loginScreen" class="login-box">
+  <div style="font-size:40px">🔐</div>
+  <h2 style="margin:10px 0">AriaCrypto <span style="color:#00ff88">ADMIN</span></h2>
+  <p style="opacity:.6;font-size:13px">Accès réservé</p>
+  <input id="adminEmail" placeholder="Email admin" value="admin@ariacrypto.mg">
+  <input id="adminPass" type="password" placeholder="Mot de passe" value="admin123">
+  <button onclick="adminLogin()" style="width:100%;background:#00ff88;border:0;padding:14px;border-radius:12px;font-weight:800;cursor:pointer;margin-top:8px">Se connecter</button>
+  <p id="loginError" style="color:#ff3b30;font-size:12px;margin-top:10px"></p>
+</div>
+<div id="dashboard" style="display:none">
+<div class="topbar">
+  <div class="logo"><div class="logo-mark">A</div>Aria<span>Crypto</span> <span class="admin-badge">ADMIN PRO</span></div>
+  <div style="display:flex;gap:10px;align-items:center">
+    <span id="smsStatus" style="font-size:12px">📱 SMS: <b style="color:#00ff88">Activé</b></span>
+    <button class="btn-export" onclick="exportCSV()">⬇ Export CSV</button>
+    <button onclick="logout()" style="background:#ff3b30;border:0;color:#fff;padding:9px 14px;border-radius:20px;font-weight:700;cursor:pointer">Déconnexion</button>
+  </div>
+</div>
+<div class="container">
+  <div class="stats">
+    <div class="stat green"><small>💰 Volume total MGA</small><b id="statVolume">0 Ar</b></div>
+    <div class="stat orange"><small>⏳ En attente</small><b id="statPending">0</b></div>
+    <div class="stat blue"><small>👥 Utilisateurs</small><b id="statUsers">0</b></div>
+    <div class="stat red"><small>📊 Transactions</small><b id="statTotal">0</b></div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h3>📈 Ventes par jour (MGA)</h3>
+        <div class="toggle" style="margin:0">
+          <button class="active" id="btn7j" onclick="setChartRange(7)">7 jours</button>
+          <button id="btn30j" onclick="setChartRange(30)">30 jours</button>
+        </div>
+      </div>
+      <canvas id="salesChart" height="220"></canvas>
+      <p style="font-size:12px;opacity:.6;margin-top:10px">Total 7j : <b id="total7j" style="color:#00ff88">0 Ar</b> • Moyenne/jour : <b id="avgJour">0 Ar</b> • Meilleur jour : <b id="bestDay">-</b></p>
+    </div>
+    <div class="card">
+      <h3>🥧 Répartition par Crypto</h3>
+      <canvas id="cryptoChart" height="220"></canvas>
+      <p style="font-size:12px;opacity:.6;margin-top:10px">Crypto la plus vendue : <b id="topCrypto">-</b></p>
+    </div>
+  </div>
+  <div class="card">
+    <h3>⚙️ 1. Notification SMS - Paramètres</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+      <div><label style="font-size:12px;opacity:.6">Fournisseur SMS</label><select id="smsProvider" onchange="updateSmsPreview()"><option value="ORANGE">Orange SMS API (Madagascar)</option><option value="VONAGE">Vonage / Nexmo</option><option value="TWILIO">Twilio</option><option value="DEMO">Mode Démo (sans envoi réel)</option></select></div>
+      <div><label style="font-size:12px;opacity:.6">Nom expéditeur</label><input id="smsSender" value="AriaCrypto" oninput="updateSmsPreview()"></div>
+      <div><label style="font-size:12px;opacity:.6">Activer SMS auto ?</label><select id="smsEnabled"><option value="1">✅ Oui, envoyer à chaque validation</option><option value="0">❌ Non</option></select></div>
+    </div>
+    <div class="sms-preview" id="smsPreview"></div>
+  </div>
+  <div class="tabs">
+    <button class="active" id="tabTrans" onclick="showTab('transactions')">Transactions</button>
+    <button id="tabUsers" onclick="showTab('users')">Utilisateurs</button>
+    <button id="tabPending" onclick="showTab('pending')">En attente à valider</button>
+    <button onclick="refreshData()">🔄 Actualiser</button>
+  </div>
+  <input class="search" id="searchInput" placeholder="🔍 Rechercher par téléphone, email, wallet, devise..." oninput="renderTables()">
+  <div class="card" id="sectionTransactions">
+    <h3>📋 Toutes les transactions</h3>
+    <div style="overflow-x:auto"><table><thead><tr><th>Date</th><th>Utilisateur</th><th>Type</th><th>Montant</th><th>Paiement</th><th>SMS</th><th>Statut</th><th>Actions</th></tr></thead><tbody id="transTable"></tbody></table></div>
+  </div>
+  <div class="card" id="sectionUsers" style="display:none">
+    <h3>👥 Utilisateurs</h3>
+    <div style="overflow-x:auto"><table><thead><tr><th>Utilisateur</th><th>Téléphone</th><th>Wallet</th><th>Nb Trans.</th><th>Total MGA</th><th>Dernière activité</th><th>Action</th></tr></thead><tbody id="usersTable"></tbody></table></div>
+  </div>
+</div>
+</div>
+<div class="modal" id="modal">
+  <div class="modal-box">
+    <h3 id="modalTitle">Détail transaction</h3>
+    <div id="modalBody" style="font-size:14px;line-height:1.7;margin:12px 0"></div>
+    <label style="font-size:12px;opacity:.6">Message SMS qui sera envoyé au client :</label>
+    <textarea id="smsMessage" rows="3"></textarea>
+    <label style="font-size:12px;opacity:.6">Note admin :</label>
+    <textarea id="adminNote" placeholder="Note interne..."></textarea>
+    <div style="display:flex;gap:10px;margin-top:10px">
+      <button class="btn btn-approve" style="flex:1;padding:13px" onclick="validateTransaction('completed')">✅ Valider + Envoyer SMS</button>
+      <button class="btn btn-reject" style="flex:1;padding:13px" onclick="validateTransaction('rejected')">❌ Refuser + SMS</button>
+    </div>
+    <button onclick="closeModal()" style="background:transparent;border:0;color:#aaa;margin-top:12px;cursor:pointer;width:100%">Fermer</button>
+  </div>
+</div>
+<script>
+// ============ CONFIG AriaCrypto - DEJA REMPLI ============
+const SUPABASE_URL = "https://pprpecscbrktispfnnps.supabase.co";
+const SUPABASE_KEY = "sb_publishable_azWZIyrQujfCoKUAAypQBw__wyELW9T";
+const SMS_CONFIG = {
+  ORANGE_API_URL: "https://api.orange.com/smsmessaging/v1/outbound/tel:+261XXXXXXXX/requests",
+  ORANGE_TOKEN: "TON_TOKEN_ORANGE_SMS",
+  VONAGE_API_KEY: "TON_VONAGE_KEY",
+  VONAGE_API_SECRET: "TON_VONAGE_SECRET",
+  TWILIO_SID: "TON_TWILIO_SID",
+  TWILIO_TOKEN: "TON_TWILIO_TOKEN"
+};
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let allTrans=[], allUsers=[], selectedTransId=null, currentTab='transactions', chartRange=7;
+let salesChart=null, cryptoChart=null;
+function adminLogin(){
+  const email=document.getElementById('adminEmail').value;
+  const pass=document.getElementById('adminPass').value;
+  if(email==="admin@ariacrypto.mg" && pass==="admin123"){
+    localStorage.setItem('aria_admin','1');
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('dashboard').style.display='block';
+    refreshData();
+  } else {
+    supabaseClient.auth.signInWithPassword({email,password:pass}).then(({error})=>{
+      if(error) document.getElementById('loginError').innerText="Email ou mot de passe incorrect";
+      else { document.getElementById('loginScreen').style.display='none'; document.getElementById('dashboard').style.display='block'; refreshData(); }
+    });
+  }
+}
+function logout(){ localStorage.removeItem('aria_admin'); location.reload(); }
+if(localStorage.getItem('aria_admin')){ document.getElementById('loginScreen').style.display='none'; document.getElementById('dashboard').style.display='block'; }
+function showTab(tab){
+  currentTab=tab;
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('sectionTransactions').style.display = tab==='transactions' || tab==='pending' ? 'block':'none';
+  document.getElementById('sectionUsers').style.display = tab==='users' ? 'block':'none';
+  if(tab==='transactions') document.getElementById('tabTrans').classList.add('active');
+  if(tab==='users') document.getElementById('tabUsers').classList.add('active');
+  if(tab==='pending') document.getElementById('tabPending').classList.add('active');
+  renderTables();
+}
+async function refreshData(){
+  const {data: trans} = await supabaseClient.from('transactions').select('*').order('created_at',{ascending:false});
+  if(trans && trans.length) allTrans=trans;
+  else {
+    allTrans=[];
+    const now=new Date();
+    for(let i=0;i<28;i++){
+      const d=new Date(now); d.setDate(d.getDate()-i);
+      const nb=Math.floor(Math.random()*4)+1;
+      for(let j=0;j<nb;j++){
+        const isMGA=Math.random()>0.3;
+        allTrans.push({id:`demo-${i}-${j}`, created_at:d.toISOString(), phone:['032 12 345 67','034 98 765 43','033 11 222 33','032 55 666 77'][Math.floor(Math.random()*4)], wallet_address:'bc1qxyz...123', type:isMGA?'MGA_TO_CRYPTO':'CRYPTO_TO_MGA', from_currency:isMGA?'MGA':'BTC', to_currency:isMGA?'BTC':'MGA', amount:isMGA? Math.floor(Math.random()*200000)+20000 : 0.005, receive_amount:isMGA?0.001:Math.floor(Math.random()*200000)+20000, payment_method:'ORANGE_MONEY', status:i<2 && j===0?'pending':(Math.random()>0.1?'completed':'rejected'), sms_sent: Math.random()>0.3});
+      }
+    }
+  }
+  const userMap={};
+  allTrans.forEach(t=>{
+    const key=t.phone||t.user_id||'inconnu';
+    if(!userMap[key]) userMap[key]={phone:t.phone, wallet:t.wallet_address, count:0, total:0, last:t.created_at, email:`user-${key.slice(-4)}@gmail.com`};
+    userMap[key].count++; userMap[key].total+= Number(t.from_currency==='MGA'?t.amount:t.receive_amount)||0;
+    if(t.created_at>userMap[key].last) userMap[key].last=t.created_at;
+  });
+  allUsers=Object.values(userMap);
+  const pending=allTrans.filter(t=>t.status==='pending').length;
+  const volume=allTrans.reduce((s,t)=>s+(t.from_currency==='MGA'?Number(t.amount):Number(t.receive_amount)||0),0);
+  document.getElementById('statVolume').innerText=volume.toLocaleString('fr-MG')+" Ar";
+  document.getElementById('statPending').innerText=pending;
+  document.getElementById('statUsers').innerText=allUsers.length;
+  document.getElementById('statTotal').innerText=allTrans.length;
+  renderTables(); drawCharts(); updateSmsPreview();
+}
+function setChartRange(days){
+  chartRange=days;
+  document.getElementById('btn7j').className=days===7?'active':'';
+  document.getElementById('btn30j').className=days===30?'active':'';
+  drawCharts();
+}
+function drawCharts(){
+  const labels=[]; const dataMap={};
+  for(let i=chartRange-1;i>=0;i--){
+    const d=new Date(); d.setDate(d.getDate()-i);
+    const key=d.toISOString().slice(0,10);
+    labels.push(d.toLocaleDateString('fr-MG',{day:'numeric',month:'short'}));
+    dataMap[key]=0;
+  }
+  allTrans.forEach(t=>{
+    if(t.status!=='completed') return;
+    const key=new Date(t.created_at).toISOString().slice(0,10);
+    if(dataMap[key]!==undefined) dataMap[key]+= Number(t.from_currency==='MGA'?t.amount:t.receive_amount)||0;
+  });
+  const values=Object.values(dataMap);
+  const total=values.reduce((a,b)=>a+b,0);
+  document.getElementById('total7j').innerText=total.toLocaleString('fr-MG')+" Ar";
+  document.getElementById('avgJour').innerText=Math.round(total/chartRange).toLocaleString('fr-MG')+" Ar";
+  const maxIdx=values.indexOf(Math.max(...values));
+  document.getElementById('bestDay').innerText=labels[maxIdx]+" ("+values[maxIdx].toLocaleString('fr-MG')+" Ar)";
+  if(salesChart) salesChart.destroy();
+  salesChart=new Chart(document.getElementById('salesChart'),{type:'bar',data:{labels,[STRIPPED] MGA',data:values,[STRIPPED]
+  const cryptoCount={};
+  allTrans.forEach(t=>{ if(t.status==='completed') cryptoCount[t.to_currency]=(cryptoCount[t.to_currency]||0)+1; });
+  const cLabels=Object.keys(cryptoCount); const cValues=Object.values(cryptoCount);
+  document.getElementById('topCrypto').innerText=cLabels.length?cLabels[cValues.indexOf(Math.max(...cValues))]:'-';
+  if(cryptoChart) cryptoChart.destroy();
+  cryptoChart=new Chart(document.getElementById('cryptoChart'),{type:'doughnut',data:{labels:cLabels,[STRIPPED]
+}
+function renderTables(){
+  let filtered=allTrans;
+  if(currentTab==='pending') filtered=allTrans.filter(t=>t.status==='pending');
+  const q=document.getElementById('searchInput').value.toLowerCase();
+  if(q) filtered=filtered.filter(t=>JSON.stringify(t).toLowerCase().includes(q));
+  document.getElementById('transTable').innerHTML=filtered.map(t=>`
+    <tr>
+      <td>${new Date(t.created_at).toLocaleString('fr-MG')}<br><small style="opacity:.5">#${String(t.id).slice(0,8)}</small></td>
+      <td><b>${t.phone||'—'}</b><br><small style="opacity:.6">${t.wallet_address? t.wallet_address.slice(0,12)+'...':''}</small></td>
+      <td><b>${t.type}</b><br>${t.from_currency} → ${t.to_currency}</td>
+      <td><b>${Number(t.amount).toLocaleString('fr-MG')} ${t.from_currency}</b><br>→ ${Number(t.receive_amount).toLocaleString('fr-MG')} ${t.to_currency}</td>
+      <td>${t.payment_method}</td>
+      <td>${t.sms_sent?'✅ Envoyé':'—'}</td>
+      <td><span class="badge ${t.status}">${t.status}</span></td>
+      <td>${t.status==='pending'?`<button class="btn btn-approve" onclick="openModal('${t.id}')">Valider</button> <button class="btn btn-reject" onclick="quickReject('${t.id}')">Refuser</button>`:`<button class="btn btn-view" onclick="openModal('${t.id}')">Voir</button>`}</td>
+    </tr>`).join('') || '<tr><td colspan="8" style="text-align:center;opacity:.5">Aucune transaction</td></tr>';
+  document.getElementById('usersTable').innerHTML=allUsers.map(u=>`
+    <tr><td><b>${u.phone}</b><br><small>${u.email}</small></td><td>${u.phone}</td><td><small>${u.wallet}</small></td><td><b>${u.count}</b></td><td>${u.total.toLocaleString('fr-MG')} Ar</td><td>${new Date(u.last).toLocaleString('fr-MG')}</td><td><button class="btn btn-view" onclick="alert('Wallet: ${u.wallet}\\nTél: ${u.phone}\\nTotal: ${u.total} Ar')">Voir</button></td></tr>`).join('');
+}
+function buildSmsMessage(t, status){
+  const sender=document.getElementById('smsSender')?.value||'AriaCrypto';
+  if(status==='completed'){
+    if(t.type==='MGA_TO_CRYPTO') return `✅ ${sender}: Paiement de ${Number(t.amount).toLocaleString('fr-MG')} Ar confirmé ! ${t.receive_amount} ${t.to_currency} envoyé sur ton wallet ${t.wallet_address}. Merci !`;
+    else return `✅ ${sender}: Vente validée ! ${Number(t.receive_amount).toLocaleString('fr-MG')} Ar envoyé sur ton Orange Money (${t.phone}). Merci !`;
+  } else {
+    return `❌ ${sender}: Ta transaction de ${Number(t.amount).toLocaleString('fr-MG')} Ar a été refusée. Contacte-nous au 032 00 000 00 pour plus d'infos.`;
+  }
+}
+function updateSmsPreview(){
+  const ex=allTrans[0]||{amount:50000,receive_amount:0.0015,to_currency:'BTC',type:'MGA_TO_CRYPTO',wallet_address:'bc1q...'};
+  document.getElementById('smsPreview').innerHTML=`<b>Aperçu SMS client :</b><br>${buildSmsMessage(ex,'completed')}`;
+}
+function openModal(id){
+  selectedTransId=id;
+  const t=allTrans.find(x=>String(x.id)===String(id)); if(!t) return;
+  document.getElementById('modalTitle').innerText=`Transaction #${String(t.id).slice(0,8)}`;
+  document.getElementById('modalBody').innerHTML=`<b>Type:</b> ${t.type}<br><b>Montant:</b> ${t.amount} ${t.from_currency} → ${t.receive_amount} ${t.to_currency}<br><b>Téléphone:</b> ${t.phone}<br><b>Wallet:</b> ${t.wallet_address}<br><b>Paiement:</b> ${t.payment_method}<br><b>Date:</b> ${new Date(t.created_at).toLocaleString('fr-MG')}<br><b>Statut:</b> ${t.status}<br><br><small style="opacity:.6">Vérifie sur Orange Money que le paiement est bien reçu avant de valider.</small>`;
+  document.getElementById('smsMessage').value=buildSmsMessage(t,'completed');
+  document.getElementById('modal').style.display='flex';
+}
+function closeModal(){ document.getElementById('modal').style.display='none'; }
+async function sendSMS(phone, message){
+  const provider=document.getElementById('smsProvider').value;
+  const enabled=document.getElementById('smsEnabled').value;
+  if(enabled==="0"){ console.log("SMS désactivé"); return false; }
+  if(provider==="DEMO"){ console.log("DEMO SMS à",phone,":",message); alert("📱 SMS DÉMO envoyé à "+phone+" :\n\n"+message); return true; }
+  try{
+    if(provider==="ORANGE"){
+      const cleanPhone="261"+phone.replace(/\s/g,'').replace(/^0/,'');
+      await fetch(SMS_CONFIG.ORANGE_API_URL, {method:'POST', headers:{'Authorization':`Bearer ${SMS_CONFIG.ORANGE_TOKEN}`,'Content-Type':'application/json'}, body: JSON.stringify({outboundSMSMessageRequest:{address:`tel:+${cleanPhone}`, senderAddress:`tel:+261XXXXXXXX`, outboundSMSTextMessage:{message}}})});
+    }
+    if(provider==="VONAGE"){
+      await fetch(`https://rest.nexmo.com/sms/json?api_key=${SMS_CONFIG.VONAGE_API_KEY}&api_secret=${SMS_CONFIG.VONAGE_API_SECRET}&to=${phone.replace(/\s/g,'')}&from=AriaCrypto&text=${encodeURIComponent(message)}`);
+    }
+    return true;
+  }catch(e){ console.log("Erreur SMS",e); return false; }
+}
+async function validateTransaction(newStatus){
+  const t=allTrans.find(x=>String(x.id)===String(selectedTransId));
+  const smsText=document.getElementById('smsMessage').value;
+  const note=document.getElementById('adminNote').value;
+  await supabaseClient.from('transactions').update({status:newStatus, admin_note:note, sms_sent:true}).eq('id',selectedTransId);
+  if(t) t.status=newStatus;
+  if(t?.phone){
+    const sent=await sendSMS(t.phone, smsText);
+    if(t) t.sms_sent=sent;
+  }
+  closeModal(); renderTables(); drawCharts();
+  alert(newStatus==='completed' ? "✅ Validée + SMS envoyé au client !" : "❌ Refusée + SMS envoyé.");
+}
+    async function quickReject(id){ if(!confirm("Refuser ?")) return; selectedTransId=id; const t=allTrans.find(x=>String(x.id)===String(id)); document.getElementById('smsMessage').value=buildSmsMessage(t,'rejected'); await validateTransaction('rejected'); }
+function exportCSV(){
+  let csv="Date,Phone,Type,Montant,Devise,Recoit,Paiement,Statut,Wallet,SMS\n";
+  allTrans.forEach(t=>{ csv+=`${t.created_at},${t.phone},${t.type},${t.amount},${t.from_currency},${t.receive_amount},${t.payment_method},${t.status},${t.wallet_address},${t.sms_sent?'Oui':'Non'}\n`; });
+  const blob=new Blob([csv],{type:'text/csv'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='ariacrypto-transactions.csv'; a.click();
+}
+supabaseClient.channel('transactions').on('postgres_changes',{event:'INSERT',schema:'public',table:'transactions'},()=>{ refreshData(); alert("🔔 Nouvelle transaction !"); }).subscribe();
+if(localStorage.getItem('aria_admin')) refreshData();
+</script>
+</body>
+</html>
